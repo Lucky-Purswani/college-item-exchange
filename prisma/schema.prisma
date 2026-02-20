@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ------------------------- User Model -------------------------
+// ENUMS
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BANNED
+  UNVERIFIED
+}
+
+model User {
+  id               String     @id @default(uuid())
+  email            String     @unique
+  passwordHash     String
+  displayName      String
+  department       String?
+  isEligible       Boolean    @default(true)
+  year             Int?
+  role             Role       @default(USER)
+  status           UserStatus @default(UNVERIFIED)
+  refreshTokenHash String?
+
+  listings         Listing[] //Ensures the one to many like one user can have many listings
+  reports          Report[] //Ensures the one to many like one user can have many reports
+  buyerInteractions  Interaction[] @relation("BuyerInteractions")
+  sellerInteractions Interaction[] @relation("SellerInteractions")
+  messages         Message[] //Ensures the one to many like one user can have many messages
+
+
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  // INDEXES
+  @@index([status])
+  @@index([department])
+}
+// ------------------------- User Model -------------------------
+
+
+
+
+
+// ------------------------- Listing Model -------------------------
+// ENUM
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  REMOVED
+}
+
+model Listing {
+  id          String         @id @default(uuid())
+  title       String
+  description String
+  price       Decimal        @db.Decimal(10, 2)
+  category    String
+  status      ListingStatus  @default(ACTIVE)
+
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  reports      Report[] //Ensures the one to many like one listing can have many reports
+  interactions Interaction[] //Ensures the one to many like one listing can have many interactions
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  deletedAt   DateTime?
+
+  // INDEXES
+  @@index([status])
+  @@index([category])
+  @@index([price])
+  @@index([status, createdAt])
+}
+// ------------------------- Listing Model -------------------------
+
+
+
+// ------------------------- Report Model -------------------------
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  REJECTED
+}
+
+model Report {
+  id         String        @id @default(uuid())
+  reason     String
+  status     ReportStatus  @default(OPEN)
+
+  reporterId String
+  reporter   User          @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  listingId  String
+  listing    Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([reporterId, listingId])
+  @@index([status])
+  @@index([listingId])
+}
+// ------------------------- Report Model -------------------------
+
+
+
+// ------------------------- Chat Model -------------------------
+
+//Interaction Model
+model Interaction {
+  id        String   @id @default(uuid())
+
+  buyerId   String
+  buyer     User     @relation("BuyerInteractions", fields: [buyerId], references: [id], onDelete: Cascade)
+
+  sellerId  String
+  seller    User     @relation("SellerInteractions", fields: [sellerId], references: [id], onDelete: Cascade)
+
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  messages Message[] //Ensures the one to many like one interaction can have many messages
+
+  createdAt DateTime @default(now())
+
+  @@unique([buyerId, listingId])
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([listingId])
+}
+
+model Message {
+  id            String      @id @default(uuid())
+  content       String
+  senderId      String
+  sender        User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  interactionId String
+  interaction   Interaction @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime    @default(now())
+
+  @@index([interactionId])
+  @@index([senderId])
+}
+
+// ------------------------- Chat Model -------------------------
